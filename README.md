@@ -13,5 +13,6 @@ docs/     notes and templates
 ## add line
 line added 
 
+the third commit message is best as it describes the exact process instead of vaguely hinting at the meaning/ just mashing buttons
 ## Author
 Julian Wesche
