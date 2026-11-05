@@ -1,4 +1,4 @@
-# Storage and backup (copy this file to STORAGE.md and fill it in)
+# Storage and backup
 
 ## Where things live
 - Code: GitHub (julianw2602/datascience_env_monit),
