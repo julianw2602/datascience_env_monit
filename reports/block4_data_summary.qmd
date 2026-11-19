@@ -1,0 +1,203 @@
+---
+title: "Data summary of my five flux towers"
+author: "Julian Wesche"
+date: today
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  warning: false
+---
+
+## C1. Site overview
+
+The table uses metadata and product citations from the newest FLUXNET Shuttle
+snapshot in `data/snapshots`. Country names are expanded from the country prefix
+in each site ID.
+
+```{python}
+#| echo: false
+import json
+import re
+from pathlib import Path
+
+import pandas as pd
+from IPython.display import SVG, display
+
+project_root = next(
+    (
+        path
+        for path in (Path.cwd(), *Path.cwd().parents)
+        if (path / "data/snapshots").is_dir()
+        and (path / "flux4student/world.json").is_file()
+    ),
+    None,
+)
+if project_root is None:
+    raise FileNotFoundError("Could not locate the project data and world map.")
+
+zip_files = sorted((project_root / "data/raw").glob("*.zip"))
+if len(zip_files) != 5:
+    raise FileNotFoundError(
+        f"Expected five tower ZIP files in data/raw, found {len(zip_files)}."
+    )
+site_ids = []
+for zip_file in zip_files:
+    match = re.match(r"^[^_]+_([^_]+)_FLUXNET_", zip_file.name)
+    if match is None:
+        raise ValueError(f"Could not extract a site ID from {zip_file.name!r}.")
+    site_ids.append(match.group(1))
+if len(set(site_ids)) != 5:
+    raise ValueError("The five tower ZIP files do not contain five unique site IDs.")
+
+snapshot_files = sorted((project_root / "data/snapshots").glob("*.csv"))
+if not snapshot_files:
+    raise FileNotFoundError("No FLUXNET Shuttle snapshot CSV found in data/snapshots.")
+snapshot_file = snapshot_files[-1]
+snapshot = pd.read_csv(snapshot_file)
+site_table = snapshot.loc[snapshot["site_id"].isin(site_ids)].copy()
+if set(site_table["site_id"]) != set(site_ids) or site_table["site_id"].duplicated().any():
+    raise ValueError("The latest snapshot does not contain exactly one row per tower.")
+
+countries = {
+    "DE": "Germany",
+    "ES": "Spain",
+    "FI": "Finland",
+    "MN": "Mongolia",
+    "US": "United States",
+}
+site_table["country"] = site_table["site_id"].str[:2].map(countries)
+if site_table["country"].isna().any():
+    raise ValueError("Could not determine a country for every tower.")
+site_table["location_lat"] = pd.to_numeric(site_table["location_lat"])
+site_table["location_long"] = pd.to_numeric(site_table["location_long"])
+
+overview = site_table[
+    [
+        "site_id",
+        "site_name",
+        "country",
+        "igbp",
+        "location_lat",
+        "location_long",
+        "first_year",
+        "last_year",
+        "data_hub",
+        "product_citation",
+    ]
+].rename(
+    columns={
+        "site_id": "Site ID",
+        "site_name": "Name",
+        "country": "Country",
+        "igbp": "IGBP",
+        "location_lat": "Latitude",
+        "location_long": "Longitude",
+        "first_year": "First year",
+        "last_year": "Last year",
+        "data_hub": "Hub",
+        "product_citation": "Data citation",
+    }
+).sort_values("Site ID")
+overview["Latitude"] = overview["Latitude"].map(lambda value: f"{value:.5f}")
+overview["Longitude"] = overview["Longitude"].map(lambda value: f"{value:.5f}")
+overview["First year"] = overview["First year"].astype(int)
+overview["Last year"] = overview["Last year"].astype(int)
+
+print(f"Snapshot used: {snapshot_file.name}")
+display(overview)
+```
+
+### Tower locations
+
+```{python}
+#| echo: false
+world = json.loads((project_root / "flux4student/world.json").read_text())
+width, height = 1000, 500
+left, top = 35, 20
+map_width, map_height = 930, 440
+min_lon, max_lon = -180, 180
+min_lat, max_lat = -60, 85
+
+
+def project(lon, lat):
+    x = left + (lon - min_lon) / (max_lon - min_lon) * map_width
+    y = top + (max_lat - lat) / (max_lat - min_lat) * map_height
+    return x, y
+
+
+land_paths = []
+for feature in world["features"]:
+    geometry = feature["geometry"]
+    if geometry is None:
+        continue
+    if geometry["type"] == "Polygon":
+        polygons = [geometry["coordinates"]]
+    elif geometry["type"] == "MultiPolygon":
+        polygons = geometry["coordinates"]
+    else:
+        raise ValueError(f"Unsupported map geometry: {geometry['type']}")
+    for polygon in polygons:
+        for ring in polygon:
+            if len(ring) < 3:
+                continue
+            points = " L ".join(
+                f"{project(lon, lat)[0]:.1f} {project(lon, lat)[1]:.1f}"
+                for lon, lat, *_ in ring
+            )
+            land_paths.append(f"M {points} Z")
+
+grid = []
+for lon in range(-120, 181, 60):
+    x, _ = project(lon, 0)
+    grid.append(
+        f'<line x1="{x:.1f}" y1="{top}" x2="{x:.1f}" '
+        f'y2="{top + map_height}" />'
+    )
+for lat in range(-30, 61, 30):
+    _, y = project(0, lat)
+    grid.append(
+        f'<line x1="{left}" y1="{y:.1f}" x2="{left + map_width}" '
+        f'y2="{y:.1f}" />'
+    )
+
+label_offsets = {
+    "DE-Geb": (9, -8),
+    "ES-LM1": (9, 15),
+    "FI-Hyy": (9, -8),
+    "MN-Nkh": (9, -8),
+    "US-WCr": (9, -8),
+}
+markers = []
+for _, site in site_table.iterrows():
+    x, y = project(site["location_long"], site["location_lat"])
+    dx, dy = label_offsets[site["site_id"]]
+    markers.append(
+        f'<circle cx="{x:.1f}" cy="{y:.1f}" r="5" class="site" />'
+        f'<text x="{x + dx:.1f}" y="{y + dy:.1f}" class="label">'
+        f'{site["site_id"]}</text>'
+    )
+
+map_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}"
+ role="img" aria-labelledby="map-title map-desc">
+ <title id="map-title">Locations of the five flux towers</title>
+ <desc id="map-desc">World map with labeled markers for US-WCr, ES-LM1,
+ DE-Geb, FI-Hyy, and MN-Nkh.</desc>
+ <style>
+  .grid {{ stroke: #ccd3d8; stroke-width: 0.8; }}
+  .land {{ fill: #e6eadf; stroke: #86918a; stroke-width: 0.7; }}
+  .site {{ fill: #c33b2f; stroke: white; stroke-width: 1.5; }}
+  .label {{ font: 13px sans-serif; fill: #202820; paint-order: stroke;
+            stroke: white; stroke-width: 3px; stroke-linejoin: round; }}
+ </style>
+ <rect width="{width}" height="{height}" fill="#f7fafc" />
+ <g class="grid">{''.join(grid)}</g>
+ <path class="land" fill-rule="evenodd" d="{' '.join(land_paths)}" />
+ <g>{''.join(markers)}</g>
+</svg>"""
+display(SVG(map_svg))
+```
+
+World outlines are from the repository's `flux4student/world.json`; marker
+coordinates are from the snapshot listed above.
