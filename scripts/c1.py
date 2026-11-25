@@ -5,6 +5,8 @@ from pathlib import Path
 import pandas as pd
 from IPython.display import SVG, display
 
+script_dir = Path(__file__).resolve().parent
+
 project_root = next(
     (
         path
@@ -89,8 +91,7 @@ print(f"Snapshot used: {snapshot_file.name}")
 display(overview)
 
 
-with open("c1.csv", "w", encoding="utf-8") as f:
-    overview.to_csv(f, index=False)
+overview.to_csv(script_dir / "c1.csv", index=False)
 
 
 #####C2 #####
@@ -181,8 +182,7 @@ map_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {heig
 </svg>"""
 
 display(SVG(map_svg))
-with open("world_map.svg", "w", encoding="utf-8") as svg_file:
-    svg_file.write(map_svg)
+(script_dir / "world_map.svg").write_text(map_svg, encoding="utf-8")
 
 import zipfile
 
@@ -343,8 +343,7 @@ heatmap_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {
 </svg>"""
 display(SVG(heatmap_svg))
 
-with open("heatmap.svg", "w", encoding="utf-8") as svg_file:
-    svg_file.write(heatmap_svg)
+(script_dir / "heatmap.svg").write_text(heatmap_svg, encoding="utf-8")
 
 variable_headers = {
     "TA_F": "TA_F (°C)",
@@ -442,7 +441,6 @@ pd.concat(site_statistics, ignore_index=True).to_csv(
     index=False,
 )
 
-script_dir = Path(__file__).resolve().parent
 (script_dir / "c3.md").write_text(
     "\n\n".join(markdown_c3_parts),
     encoding="utf-8",
@@ -683,8 +681,7 @@ plot_svg = f"""<svg xmlns="http://www.w3.org/2000/svg"
   class="tick" text-anchor="middle">Date</text>
 </svg>"""
 display(SVG(plot_svg))
-with open("daily_flux.svg", "w", encoding="utf-8") as svg_file:
-    svg_file.write(plot_svg)
+(script_dir / "daily_flux.svg").write_text(plot_svg, encoding="utf-8")
 
 
 diurnal_variables = ["NEE_VUT_REF", "LE_F_MDS"]
@@ -890,8 +887,7 @@ diurnal_svg = f"""<svg xmlns="http://www.w3.org/2000/svg"
   class="tick" text-anchor="middle">Hour of day</text>
 </svg>"""
 display(SVG(diurnal_svg))
-with open("diurnal_cycles.svg", "w", encoding="utf-8") as svg_file:
-    svg_file.write(diurnal_svg) 
+(script_dir / "diurnal_cycles.svg").write_text(diurnal_svg, encoding="utf-8")
 
 (script_dir / "c4.md").write_text(
     "\n\n".join(markdown_c4_parts),
@@ -1037,6 +1033,7 @@ energy_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 700"
   class="tick" text-anchor="middle">H_F_MDS + LE_F_MDS (W m⁻²)</text>
 </svg>"""
 display(SVG(energy_svg))
+(script_dir / "energy_balance.svg").write_text(energy_svg, encoding="utf-8")
 display_markdown(
     f"At {energy_site}, the fitted slope was **{energy_slope:.3f}** "
     f"from {len(energy_data):,} measured half hours.",
