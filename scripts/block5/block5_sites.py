@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 # ---- Your settings -----------------------------------------------------------
-MY_STUDENT = "07"          # your student number from tower_sets_block4.csv
+MY_STUDENT = "34"          # your student number from tower_sets_block4.csv
 MY_SITES = None            # or pick sites yourself, e.g. ["DE-Hai", "FR-Hes"]
 TOWER_CSV = "tower_sets_block4.csv"   # from ILIAS (folder DATA), same file as Block 4
 

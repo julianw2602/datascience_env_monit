@@ -1,0 +1,2 @@
+n_tower_years,n_towers,pearson_r,p_value,gpp_method
+23,3,-0.25777118763001955,0.2350360183479501,sum of observed GPP_NT_VUT_REF days; year >= 300 observed days

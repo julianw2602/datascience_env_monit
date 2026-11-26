@@ -1,0 +1,128 @@
+---
+title: "Block 5: Deadwood and annual productivity"
+author: "Julian Wesche"
+date: today
+jupyter: block5-python
+format:
+  html:
+    toc: true
+    code-fold: true
+    embed-resources: true
+execute:
+  warning: false
+---
+
+# E1. Question and hypothesis
+
+**Question:** Does standing deadwood cover per year relate to annual gross primary productivity (GPP) at the European towers in student set 34?
+
+**Hypothesis:** I expect higher standing deadwood cover to be associated with lower annual GPP. The ecological reason is that standing deadwood indicates mortality or canopy damage, so a higher deadwood fraction should reduce living photosynthetic biomass and carbon uptake.
+
+Student set 34 contains five towers, of which FI-Hyy and US-WCr are forests, DE-Geb is cropland, ES-LM1 is savanna, and MN-Nkh is grassland. Deadtrees.earth covers Europe, so FI-Hyy, DE-Geb, and ES-LM1 are a good but limited test for question 6. The result is descriptive because there are only three European towers and different ecosystem types; the deadtrees dataset also identifies only the three European towers.
+
+# E2. Data
+
+```{python}
+#| label: provenance
+#| echo: false
+import pandas as pd
+
+provenance = pd.DataFrame([
+    ["FLUXNET 2015/ONEFlux", "GPP_NT_VUT_REF", "Tower / FLUXMET_DD",
+     "Daily; 1997-2026 depending on tower", "26 Nov 2026",
+     "scripts/get_my_towers.py --student 34", "Pastorello et al. (2020); each FLUXNET site citation"],
+    ["deadtrees.earth v5", "tree_cover_pct; deadwood_pct; forest_ha; mortality_ha",
+     "10 m, 2 km x 2 km extraction box", "Yearly; 2017-2025",
+     "26 Nov 2026", "scripts/block5/06_deadtrees.py --student 34",
+     "Mosig et al. (2026), Remote Sensing of Environment 332, 115027"],
+    ["MODIS Terra MOD13Q1 C6.1", "NDVI calculated from red/NIR; EVI calculated from reflectance",
+     "250 m pixels; 9 x 9 pixel window", "16-day; last three tower years",
+     "26 Nov 2026", "scripts/block5/08_modis_ndvi_evi.py --student 34",
+     "Didan (2021), MOD13Q1 V061; ORNL DAAC subset service"],
+])
+provenance.columns = ["Dataset", "Variables used", "Spatial resolution",
+                      "Time resolution and period", "Downloaded on",
+                      "Script and changes", "Citation"]
+display(provenance)
+```
+
+The MODIS script used its default settings: `YEARS_BACK = 3`, a 1 km left/right/above/below window (9 x 9 pixels), reliability 0 or 1, and computed rather than official NDVI/EVI. The deadtrees script used its default 2 km x 2 km box and the 2017-2025 yearly products.
+
+```{python}
+#| label: tower-description
+#| echo: false
+from pathlib import Path
+import pandas as pd
+
+root = next(path for path in (Path.cwd(), *Path.cwd().parents)
+            if (path / "reports" / "block5_question" / "european_tower_means.csv").exists())
+means = pd.read_csv(root / "reports" / "block5_question" / "european_tower_means.csv")
+means.columns = ["Tower", "Mean deadwood (%)", "Mean annual GPP (g C m-2 yr-1)",
+                 "Mean April-September NDVI"]
+display(means.round(3))
+```
+
+# E3. Methods
+
+**Download:** I ran the Python FLUXNET Shuttle for student 34, which downloaded US-WCr, FI-Hyy, MN-Nkh, DE-Geb, and ES-LM1 and wrote all five zips to `data/raw`. I then ran `06_deadtrees.py --student 34` and `08_modis_ndvi_evi.py --student 34`; no ERA5-Land data were used. The MODIS service saved completed towers as it proceeded, and all five were ultimately downloaded. No download required an account.
+
+**Extraction:** The deadtrees script transformed tower coordinates to EPSG:3035 and extracted 2 km x 2 km boxes. MN-Nkh and US-WCr were outside Europe and therefore had no deadtrees values. MODIS used 250 m pixels in a 9 x 9 pixel window around each tower and retained pixel reliability 0 or 1.
+
+**Processing:** FLUXNET daily values were read with `-9999` interpreted as missing. GPP_NT_VUT_REF values were summed by tower and year, and only years with at least 300 observed GPP days were retained. The deadtrees values were merged on tower ID and year. MODIS NDVI and EVI were calculated from scaled reflectance; April-September mean NDVI was used as a seasonal canopy-greenness description.
+
+**Analysis:** The primary analysis was Pearson correlation across European tower-year observations. I additionally made a point figure and FI-Hyy time-series figure. The reported n is 23 tower-years from FI-Hyy, DE-Geb, and ES-LM1. Tower-years within a tower are not independent, and the result should not be interpreted as a causal effect.
+
+# E4. Results
+
+```{python}
+#| label: deadwood-gpp-figure
+#| echo: false
+from IPython.display import Image, display
+display(Image(filename="block5_question/deadwood_vs_annual_gpp.png", width=800))
+```
+
+*Figure 1. Annual GPP versus standing deadwood cover for the three European towers. Each point is one tower-year; FI-Hyy, DE-Geb, and ES-LM1 are shown separately.*
+
+The point pattern shows a weak negative overall association: Pearson r = -0.258 (p = 0.235) across n = 23 tower-years and 3 towers. This does not support a clear deadwood-GPP relationship with the available data.
+
+```{python}
+#| label: fi-hyy-timeseries
+#| echo: false
+display(Image(filename="block5_question/fi_hyy_deadwood_gpp_timeseries.png", width=800))
+```
+
+*Figure 2. FI-Hyy 2017-2025 deadwood cover and annual GPP. The left axis shows deadwood percentage and the right axis shows GPP in g C m-2 yr-1.*
+
+```{python}
+#| label: ndvi-gpp-figure
+#| echo: false
+display(Image(filename="block5_question/ndvi_vs_annual_gpp.png", width=800))
+```
+
+*Figure 3. MODIS mean April-September NDVI versus annual GPP for the European tower-years, as a canopy-greenness description of the second dataset.*
+
+# E5. Discussion
+
+The result does not strongly support my hypothesis: across 23 European tower-years, higher deadwood cover was associated with slightly lower GPP, but the correlation was weak and not statistically significant. FI-Hyy has by far the highest mean deadwood cover and a somewhat lower mean GPP than DE-Geb, while ES-LM1 was intermediate. DE-Geb is cropland with very little tree cover, and ES-LM1 is savanna, so the cross-tower contrast largely mixes different vegetation types and may not reflect deadwood effects within forests.
+
+The deadtrees pixels are 10 m, but the extraction used a 2 km x 2 km box around each tower; this is much larger than the 100 m-1 km flux footprint, although averaging across nearby pixels can smooth local small-scale mortality. The MODIS pixels are 250 m and the script used a 9 x 9 pixel window of about 2.25 km across; it is coarser than the flux footprint and may include land outside the tower's immediate source area.
+
+There are important limitations: only three towers have European deadtrees coverage, there are repeated yearly observations within those towers, and the 23-point Pearson correlation does not adjust for ecosystem type or climate. Missing values and low forest cover at DE-Geb reduce interpretability, and GPP itself is model-gap-filled in the FLUXNET product to some extent. With more time, I would fit a mixed-effects model with tower as a random intercept and add annual climate covariates, or restrict the comparison to forest towers only.
+
+# E6. Data and citations
+
+FLUXNET tower citations:
+
+- US-WCr: Ankur Desai (2026), AmeriFlux FLUXNET-1F US-WCr Willow Creek, Ver. v1.3_r1, AmeriFlux AMP, https://doi.org/10.17190/AMF/3028955.
+- FI-Hyy: Mammarella et al. (2026), Fluxnet Archive Product from Hyytiala, 1997-2026, FLUXNET, https://hdl.handle.net/11676/ZcRUMOt7xGz-h-IHMeooad6z.
+- MN-Nkh: Wang et al. (2026), Fluxnet Archive Product from Nalaikh grassland, 2015-2020, FLUXNET, https://hdl.handle.net/11676/wOMUKsoUO8-izEp_YKLHLZCH.
+- DE-Geb: Brümmer et al. (2026), Fluxnet Archive Product from Gebesee, 2020-2026, FLUXNET; citation is recorded in `data/raw/CITATIONS.txt`.
+- ES-LM1: Carrara et al. (2026), Fluxnet Archive Product from Majadas del Tietar North, 2014-2025, FLUXNET, https://hdl.handle.net/11676/F7-nBn7xl13T_i2qkSJvi2uV.
+
+Pastorello et al. (2020), "The FLUXNET2015 dataset and the ONEFlux processing pipeline," *Scientific Data* 7, 225, https://doi.org/10.1038/s41597-020-0534-3.
+
+Mosig et al. (2026), deadtrees.earth methodology and Europe maps, *Remote Sensing of Environment* 332, 115027, https://doi.org/10.1016/j.rse.2025.115027.
+
+Didan, K. (2021), MOD13Q1 MODIS/Terra Vegetation Indices 16-Day L3 Global 250 m SIN Grid V061, NASA LP DAAC, https://doi.org/10.5067/MODIS/MOD13Q1.061. MODIS subsets were obtained through the ORNL DAAC MODIS/VIIRS subset web service.
+
+FLUXNET acknowledgement: "This work used eddy covariance data acquired and shared by the FLUXNET community, including AmeriFlux, ICOS, and TERN. The FLUXNET community and its data-sharing infrastructure are acknowledged in the Pastorello et al. (2020) data description and by the individual site data policy."
